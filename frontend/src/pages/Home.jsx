@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { HiArrowRight } from "react-icons/hi"; // Heroicons arrow
+import { FaUserCircle } from "react-icons/fa"; // Account icon
 import bgImage from "../assets/home-bg.jpg";
 
 const Home = () => {
@@ -12,10 +13,18 @@ const Home = () => {
       {/* Overlay */}
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
 
+      {/* Account Icon */}
+      <Link
+        to="/my-account"
+        className="absolute top-5 right-5 text-white text-4xl hover:text-yellow-400 transition"
+      >
+        <FaUserCircle />
+      </Link>
+
       {/* Content */}
       <div className="relative z-10 text-center text-white px-4">
         <h1 className="text-5xl md:text-6xl font-extrabold mb-6">
-          Welcome to <span className="text-yellow-400">Seat Reservation System </span>
+          Welcome to <span className="text-yellow-400">Seat Reservation System</span>
         </h1>
         <p className="text-xl md:text-2xl mb-8">
           Book your seats easily and quickly. Manage your reservations with ease!
