@@ -1,8 +1,10 @@
+import React from "react";
+
 const AdminDashboard = () => {
   return (
-    <div>
-      <h1>Welcome to Admin Dashboard</h1>
-      <p>Here you can manage seats, view reports, and control the system.</p>
+    <div className="p-10">
+      <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
+      <p>Welcome, Admin! Here you can manage the system.</p>
     </div>
   );
 };
