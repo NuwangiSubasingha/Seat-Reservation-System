@@ -5,12 +5,14 @@ import authMiddleware from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get reservations of logged-in user
+// ✅ Get reservations of logged-in user
 router.get("/my", authMiddleware, async (req, res) => {
   try {
-    const reservations = await Reservation.find({ InternID: req.user.id }).populate("SeatID");
+    const reservations = await Reservation.find({ InternID: req.user.id })
+      .populate("SeatID");
+
     res.json(reservations.map(r => ({
-      ReservationID: r._id,
+      ReservationID: r._id, // consistent naming
       InternID: r.InternID,
       SeatID: r.SeatID,
       Date: r.Date,
@@ -22,25 +24,28 @@ router.get("/my", authMiddleware, async (req, res) => {
   }
 });
 
-// Create reservation – only 1 seat per user per date
+// ✅ Create reservation – one per day per user
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { SeatID, Date, TimeSlot } = req.body;
     const InternID = req.user.id;
 
-    // Check if user already booked a seat for this date
+    // Prevent multiple bookings same day
     const existingBooking = await Reservation.findOne({ InternID, Date, Status: "Active" });
-    if (existingBooking) return res.status(400).json({ error: "You can only book 1 seat per day" });
+    if (existingBooking) {
+      return res.status(400).json({ error: "You can only book 1 seat per day" });
+    }
 
-    // Check if seat is already booked for this date
+    // Prevent seat double booking
     const conflict = await Reservation.findOne({ SeatID, Date, Status: "Active" });
-    if (conflict) return res.status(400).json({ error: "Seat already reserved for this date" });
+    if (conflict) {
+      return res.status(400).json({ error: "Seat already reserved for this date" });
+    }
 
     // Create reservation
     const reservation = new Reservation({ InternID, SeatID, Date, TimeSlot, Status: "Active" });
     await reservation.save();
 
-    // Update seat status
     await Seat.findByIdAndUpdate(SeatID, { Status: "Unavailable" });
 
     res.status(201).json({
@@ -56,13 +61,15 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// Cancel reservation
+// ✅ Cancel reservation
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
 
-    if (reservation.InternID.toString() !== req.user.id) return res.status(403).json({ message: "Not authorized" });
+    if (reservation.InternID.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
     reservation.Status = "Cancelled";
     await reservation.save();
@@ -75,7 +82,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Get booked seats for a specific date
+// ✅ Get booked seats for a specific date
 router.get("/booked-seats/:date", async (req, res) => {
   try {
     const { date } = req.params;

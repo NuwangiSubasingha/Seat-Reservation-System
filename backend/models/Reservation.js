@@ -42,7 +42,7 @@ const reservationSchema = new mongoose.Schema({
   InternID: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   SeatID: { type: mongoose.Schema.Types.ObjectId, ref: "Seat", required: true },
   Date: { type: String, required: true }, // YYYY-MM-DD
-  TimeSlot: { type: String, required: true }, 
+  TimeSlot: { type: String, default: "08:30-16:30" }, // fixed timeslot
   Status: { type: String, enum: ["Active", "Cancelled"], default: "Active" }
 }, { timestamps: true });
 

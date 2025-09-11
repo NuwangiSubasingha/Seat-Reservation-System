@@ -15,10 +15,30 @@ const MyAccount = () => {
     const fetchReservations = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await API.get("/bookings/my", {
+        if (!token) {
+          console.error("No token found. Please log in again.");
+          return;
+        }
+
+        const res = await API.get("/reservations/my", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setReservations(res.data);
+
+        const sorted = res.data.sort((a, b) => {
+          const today = new Date();
+          const dateA = new Date(a.Date);
+          const dateB = new Date(b.Date);
+
+          const isFutureA = dateA >= today && a.Status === "Active";
+          const isFutureB = dateB >= today && b.Status === "Active";
+
+          if (isFutureA && !isFutureB) return -1;
+          if (!isFutureA && isFutureB) return 1;
+
+          return dateB - dateA;
+        });
+
+        setReservations(sorted);
       } catch (err) {
         console.error("Error fetching reservations:", err);
       } finally {
@@ -30,72 +50,133 @@ const MyAccount = () => {
   }, []);
 
   const cancelReservation = async (id) => {
-    if (!window.confirm("Are you sure you want to cancel this reservation?"))
-      return;
+    if (!window.confirm("Are you sure you want to cancel this reservation?")) return;
     try {
       const token = localStorage.getItem("token");
-      await API.delete(`/bookings/${id}`, {
+      await API.delete(`/reservations/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setReservations(reservations.filter((r) => r._id !== id));
+
+      setReservations(reservations.filter((r) => (r.ReservationID || r._id) !== id));
     } catch (err) {
       console.error("Error cancelling reservation:", err);
     }
   };
 
-  if (loading) return <p className="p-10 text-center">Loading reservations...</p>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200">
+        <p className="text-xl font-bold text-blue-800 animate-pulse bg-white px-6 py-3 rounded-xl shadow-lg border">
+          Loading your reservations...
+        </p>
+      </div>
+    );
 
   return (
-    <div className="min-h-screen p-10 bg-gray-100">
-      <h1 className="text-3xl font-bold mb-2 text-center">My Account</h1>
-      {user.name && (
-        <p className="text-center text-gray-700 mb-6">
-          Welcome, <span className="font-semibold">{user.name}</span>
-        </p>
-      )}
+    <div className="min-h-screen p-10 bg-gradient-to-r from-blue-50 via-blue-100 to-blue-200">
+      <div className="max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
+        {/* Header */}
+        <h1 className="text-4xl font-extrabold mb-6 text-center text-blue-900 drop-shadow-lg tracking-wide">
+          My Account
+        </h1>
+        {user.name && (
+          <p className="text-center text-black-700 mb-10 text-lg">
+            Welcome,{" "}
+            <span className="font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-lg shadow-sm">
+              {user.name}
+            </span>
+          </p>
+        )}
 
-      <h2 className="text-xl font-semibold mb-4">Your Reservations</h2>
+        {/* Section Title */}
+        <h2 className="text-2xl font-semibold mb-8 text-gray-800 border-b-4 border-blue-400 pb-3">
+          ✨ Your Reservations
+        </h2>
 
-      {reservations.length === 0 ? (
-        <p className="text-gray-600">You have no reservations.</p>
-      ) : (
-        <div className="space-y-4">
-          {reservations.map((resv) => {
-            const reservationDate = new Date(resv.date);
-            const isFuture = reservationDate > new Date();
+        {/* Reservations List */}
+        {reservations.length === 0 ? (
+          <p className="text-gray-600 italic text-center bg-white p-8 rounded-2xl shadow-inner border border-gray-300">
+            You don’t have any reservations yet. 
+          </p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {reservations.map((resv) => {
+              const reservationDate = new Date(resv.Date);
+              const isFuture = reservationDate >= new Date() && resv.Status === "Active";
 
-            return (
-              <div
-                key={resv._id}
-                className="p-4 bg-white rounded-lg shadow flex justify-between items-center"
-              >
-                <div>
-                  <p className="font-semibold">
-                    Seats Number: {resv.selectedSeats.join(", ")}
-                  </p>
-                  <p className="text-gray-500">
-                    Booking Date: {reservationDate.toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {isFuture ? (
-                    <button
-                      onClick={() => cancelReservation(resv._id)}
-                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+              return (
+<div
+  key={resv.ReservationID || resv._id}
+  className={`p-1 rounded-2xl shadow-lg border relative transition transform hover:scale-[1.02] hover:shadow-2xl ${
+    isFuture
+      ? "bg-gradient-to-br from-green-50 to-green-100 border-green-400"
+      : "bg-gradient-to-br from-gray-100 to-gray-200 border-gray-400"
+  }`}
+>
+
+                  {/* Ribbon */}
+                  <span
+                    className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full shadow-md ${
+                      isFuture
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-400 text-white"
+                    }`}
+                  >
+                    {isFuture ? "Upcoming" : "Past"}
+                  </span>
+
+                  {/* Details */}
+                  <div className="space-y-2">
+                    <p className="font-semibold text-gray-800">
+                      Seat Number:{" "}
+                      <span className="text-blue-700 font-bold text-lg">
+                        {resv.SeatID?.SeatNumber || "Unknown"}
+                      </span>
+                    </p>
+                    <p className="text-gray-600">
+                      Booking Date:{" "}
+                      <span className="font-medium">
+                        {reservationDate.toLocaleDateString()}
+                      </span>
+                    </p>
+                    <p className="text-gray-600">
+                      Time Slot:{" "}
+                      <span className="font-medium">{resv.TimeSlot}</span>
+                    </p>
+                    <p
+                      className={`font-bold mt-1 text-lg ${
+                        resv.Status === "Active"
+                          ? "text-green-700"
+                          : "text-red-600"
+                      }`}
                     >
-                      Cancel
-                    </button>
-                  ) : (
-                    <span className="text-gray-400 italic">
-                      Past Reservation
-                    </span>
-                  )}
+                      Status: {resv.Status}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-4 flex gap-2">
+                    {isFuture ? (
+                      <button
+                        onClick={() =>
+                          cancelReservation(resv.ReservationID || resv._id)
+                        }
+                        className="flex-1 px-5 py-2 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 hover:shadow-lg transition"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <span className="flex-1 text-center text-gray-500 italic py-2">
+                        Past / Cancelled
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
