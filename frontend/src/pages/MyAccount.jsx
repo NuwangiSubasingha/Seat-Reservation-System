@@ -2,26 +2,25 @@ import { useEffect, useState } from "react";
 import API from "../api";
 
 const MyAccount = () => {
-  const [reservations, setReservations] = useState([]);
   const [user, setUser] = useState({});
+  const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loggedUser = JSON.parse(localStorage.getItem("user"));
+    if (loggedUser) {
+      setUser({ name: loggedUser.Name, id: loggedUser.ID });
+    }
+
     const fetchReservations = async () => {
       try {
-        const token = localStorage.getItem("token"); // JWT from login
-        const res = await API.get("/reservations/my", {
+        const token = localStorage.getItem("token");
+        const res = await API.get("/bookings/my", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         setReservations(res.data);
-
-        // Get user info from first reservation if exists
-        if (res.data.length > 0) {
-          setUser({ name: res.data[0].user.name, id: res.data[0].user._id });
-        }
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching reservations:", err);
       } finally {
         setLoading(false);
       }
@@ -31,20 +30,17 @@ const MyAccount = () => {
   }, []);
 
   const cancelReservation = async (id) => {
-    if (!window.confirm("Are you sure you want to cancel this reservation?")) return;
-
+    if (!window.confirm("Are you sure you want to cancel this reservation?"))
+      return;
     try {
-      await API.delete(`/reservations/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      const token = localStorage.getItem("token");
+      await API.delete(`/bookings/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setReservations(reservations.filter((r) => r._id !== id));
     } catch (err) {
-      console.error(err);
+      console.error("Error cancelling reservation:", err);
     }
-  };
-
-  const modifyReservation = (id) => {
-    alert("Modify reservation functionality coming soon!");
   };
 
   if (loading) return <p className="p-10 text-center">Loading reservations...</p>;
@@ -54,7 +50,7 @@ const MyAccount = () => {
       <h1 className="text-3xl font-bold mb-2 text-center">My Account</h1>
       {user.name && (
         <p className="text-center text-gray-700 mb-6">
-          Welcome, <span className="font-semibold">{user.name}</span> (ID: {user.id})
+          Welcome, <span className="font-semibold">{user.name}</span>
         </p>
       )}
 
@@ -74,30 +70,25 @@ const MyAccount = () => {
                 className="p-4 bg-white rounded-lg shadow flex justify-between items-center"
               >
                 <div>
-                  <p className="font-semibold">{resv.seat.label}</p>
+                  <p className="font-semibold">
+                    Seats Number: {resv.selectedSeats.join(", ")}
+                  </p>
                   <p className="text-gray-500">
-                    {reservationDate.toLocaleDateString()}{" "}
-                    {reservationDate.toLocaleTimeString()}
+                    Booking Date: {reservationDate.toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   {isFuture ? (
-                    <>
-                      <button
-                        onClick={() => cancelReservation(resv._id)}
-                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => modifyReservation(resv._id)}
-                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Modify
-                      </button>
-                    </>
+                    <button
+                      onClick={() => cancelReservation(resv._id)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                    >
+                      Cancel
+                    </button>
                   ) : (
-                    <span className="text-gray-400 italic">Past Reservation</span>
+                    <span className="text-gray-400 italic">
+                      Past Reservation
+                    </span>
                   )}
                 </div>
               </div>

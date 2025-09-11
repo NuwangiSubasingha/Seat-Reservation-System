@@ -1,73 +1,56 @@
-// import express from "express";
-// import Reservation from "../models/Reservation.js";
-// import Seat from "../models/Seat.js";
-
-// const router = express.Router();
-
-// // GET all reservations
-// router.get("/", async (req, res) => {
-//   try {
-//     const reservations = await Reservation.find().populate("seat");
-//     res.json(reservations);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// // CREATE a reservation
-// router.post("/", async (req, res) => {
-//   const { seatId, userName } = req.body;
-//   try {
-//     const seat = await Seat.findById(seatId);
-//     if (!seat) return res.status(404).json({ message: "Seat not found" });
-//     if (seat.isBooked) return res.status(400).json({ message: "Seat already booked" });
-
-//     seat.isBooked = true;
-//     await seat.save();
-
-//     const reservation = new Reservation({ seat: seatId, userName });
-//     await reservation.save();
-
-//     res.json(reservation);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// // CANCEL a reservation
-// router.delete("/:id", async (req, res) => {
-//   try {
-//     const reservation = await Reservation.findById(req.params.id);
-//     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
-
-//     const seat = await Seat.findById(reservation.seat);
-//     if (seat) {
-//       seat.isBooked = false;
-//       await seat.save();
-//     }
-
-//     await reservation.remove();
-//     res.json({ message: "Reservation canceled" });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// export default router;
-
 import express from "express";
 import Reservation from "../models/Reservation.js";
 import Seat from "../models/Seat.js";
-import authMiddleware from "../middleware/auth.js"; // JWT auth middleware
+import authMiddleware from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get reservations for logged-in user
+// Get reservations of logged-in user
 router.get("/my", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id; // set by auth middleware
-    const reservations = await Reservation.find({ user: userId }).populate("seat");
-    res.json(reservations);
+    const reservations = await Reservation.find({ InternID: req.user.id }).populate("SeatID");
+    res.json(reservations.map(r => ({
+      ReservationID: r._id,
+      InternID: r.InternID,
+      SeatID: r.SeatID,
+      Date: r.Date,
+      TimeSlot: r.TimeSlot,
+      Status: r.Status
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create reservation – only 1 seat per user per date
+router.post("/", authMiddleware, async (req, res) => {
+  try {
+    const { SeatID, Date, TimeSlot } = req.body;
+    const InternID = req.user.id;
+
+    // Check if user already booked a seat for this date
+    const existingBooking = await Reservation.findOne({ InternID, Date, Status: "Active" });
+    if (existingBooking) return res.status(400).json({ error: "You can only book 1 seat per day" });
+
+    // Check if seat is already booked for this date
+    const conflict = await Reservation.findOne({ SeatID, Date, Status: "Active" });
+    if (conflict) return res.status(400).json({ error: "Seat already reserved for this date" });
+
+    // Create reservation
+    const reservation = new Reservation({ InternID, SeatID, Date, TimeSlot, Status: "Active" });
+    await reservation.save();
+
+    // Update seat status
+    await Seat.findByIdAndUpdate(SeatID, { Status: "Unavailable" });
+
+    res.status(201).json({
+      message: "Reservation created",
+      ReservationID: reservation._id,
+      SeatID: reservation.SeatID,
+      Date: reservation.Date,
+      TimeSlot: reservation.TimeSlot,
+      Status: reservation.Status,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -79,20 +62,25 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ message: "Reservation not found" });
 
-    // Only allow owner to cancel
-    if (reservation.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+    if (reservation.InternID.toString() !== req.user.id) return res.status(403).json({ message: "Not authorized" });
 
-    // Free the seat
-    const seat = await Seat.findById(reservation.seat);
-    if (seat) {
-      seat.isBooked = false;
-      await seat.save();
-    }
+    reservation.Status = "Cancelled";
+    await reservation.save();
 
-    await reservation.remove();
-    res.json({ message: "Reservation canceled" });
+    await Seat.findByIdAndUpdate(reservation.SeatID, { Status: "Available" });
+
+    res.json({ message: "Reservation cancelled", ReservationID: reservation._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get booked seats for a specific date
+router.get("/booked-seats/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const reservations = await Reservation.find({ Date: date, Status: "Active" }).populate("SeatID");
+    res.json(reservations);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -29,7 +29,7 @@ import MyAccount from "./pages/MyAccount";
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<Home />} />
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
