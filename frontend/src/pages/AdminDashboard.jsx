@@ -145,83 +145,91 @@ const AdminDashboard = () => {
         {activeTab === "reservations" && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Manage Reservations</h2>
-            
+            <p className="text-gray-600 mb-4">
+              View, approve, or cancel reservations.
+            </p>
 
             {/* Filter */}
             <div className="flex items-center gap-4 mb-4">
-  <select
-    value={filter.type}
-    onChange={(e) =>
-      setFilter({ ...filter, type: e.target.value, value: "" })
-    }
-    className="px-3 py-2 border rounded-lg"
-  >
-    <option value="date">Filter by Date</option>
-    <option value="intern">Filter by User ID</option>
-  </select>
-  <input
-    type={filter.type === "date" ? "date" : "text"}
-    placeholder={
-      filter.type === "intern"
-        ? "User ID"
-        : "Select a Date"
-    }
-    value={filter.value}
-    onChange={(e) =>
-      setFilter({ ...filter, value: e.target.value })
-    }
-    className="px-3 py-2 border rounded-lg"
-  />
-  <button
-    onClick={fetchReservations}
-    className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
-  >
-    🔍 Search
-  </button>
-</div>
-
+              <select
+                value={filter.type}
+                onChange={(e) =>
+                  setFilter({ ...filter, type: e.target.value, value: "" })
+                }
+                className="px-3 py-2 border rounded-lg"
+              >
+                <option value="date">Filter by Date</option>
+                <option value="intern">Filter by Intern</option>
+              </select>
+              <input
+                type={filter.type === "date" ? "date" : "text"}
+                placeholder={
+                  filter.type === "intern"
+                    ? "Enter Intern ID"
+                    : "Select a Date"
+                }
+                value={filter.value}
+                onChange={(e) =>
+                  setFilter({ ...filter, value: e.target.value })
+                }
+                className="px-3 py-2 border rounded-lg"
+              />
+              <button
+                onClick={fetchReservations}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
+              >
+                🔍 Search
+              </button>
+            </div>
 
             {/* Reservations Table */}
-            {/* Reservations Table */}
-{/* Reservations Table */}
-<table className="w-full border-collapse border border-gray-300">
-  <thead>
-    <tr className="bg-gray-100">
-      <th className="border border-gray-300 px-4 py-2">Reservation ID</th>
-      <th className="border border-gray-300 px-4 py-2">User ID</th>
-      <th className="border border-gray-300 px-4 py-2">Seat</th>
-      <th className="border border-gray-300 px-4 py-2">Date</th>
-      <th className="border border-gray-300 px-4 py-2">Time Slot</th>
-      <th className="border border-gray-300 px-4 py-2">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {reservations.length > 0 ? (
-      reservations.map((r, index) => (
-        <tr key={r.ReservationID}>
-          <td className="border border-gray-300 px-4 py-2">{r.ReservationID}</td>
-          <td className="border border-gray-300 px-4 py-2">
-            {`U${(index + 1).toString().padStart(3, "0")}`}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {r.SeatID?.SeatNumber || "-"}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">{r.Date}</td>
-          <td className="border border-gray-300 px-4 py-2">{r.TimeSlot}</td>
-          <td className="border border-gray-300 px-4 py-2">{r.Status}</td>
-        </tr>
-      ))
-    ) : (
-      <tr>
-        <td colSpan="6" className="text-center py-4 text-gray-500">
-          No reservations found.
-        </td>
-      </tr>
-    )}
-  </tbody>
-</table>
-
-
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-4 py-2">Reservation ID</th>
+                  <th className="border border-gray-300 px-4 py-2">Intern ID</th>
+                  <th className="border border-gray-300 px-4 py-2">Seat</th>
+                  <th className="border border-gray-300 px-4 py-2">Date</th>
+                  <th className="border border-gray-300 px-4 py-2">Time Slot</th>
+                  <th className="border border-gray-300 px-4 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reservations.length > 0 ? (
+                  reservations.map((r) => (
+                    <tr key={r.ReservationID}>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.ReservationID}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.InternID}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.SeatID?.SeatNumber || "-"}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.Date}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.TimeSlot}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {r.Status}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="text-center py-4 text-gray-500"
+                    >
+                      No reservations found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 
