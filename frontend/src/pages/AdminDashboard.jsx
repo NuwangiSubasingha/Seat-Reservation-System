@@ -30,7 +30,7 @@ const AdminDashboard = () => {
     const newNumber = maxNumber + 1;
 
     const newSeat = {
-      seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`, // S001, S002...
+      seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`,
       SeatNumber: `Seat ${newNumber}`,
       Location: "Default Location",
     };
@@ -70,8 +70,9 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch reservations when Reservations or Reports tab is active
   useEffect(() => {
-    if (activeTab === "reservations") {
+    if (activeTab === "reservations" || activeTab === "reports") {
       fetchReservations();
     }
   }, [activeTab]);
@@ -236,9 +237,77 @@ const AdminDashboard = () => {
         {activeTab === "reports" && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Reports</h2>
-            <p className="text-gray-600 mb-4">
-              View system reports and statistics.
-            </p>
+        
+
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="p-4 bg-gray-100 rounded-lg shadow">
+                <h3 className="font-semibold mb-2">Seat Summary</h3>
+                <p>Total Seats: {seats.length}</p>
+                <p>
+                  Available Seats: {seats.filter((s) => s.Status !== "Unavailable").length}
+                </p>
+                <p>
+                  Unavailable Seats: {seats.filter((s) => s.Status === "Unavailable").length}
+                </p>
+              </div>
+
+              <div className="p-4 bg-gray-100 rounded-lg shadow">
+                <h3 className="font-semibold mb-2">Reservation Summary</h3>
+                <p>Total Reservations: {reservations.length}</p>
+                <p>
+                  Active Reservations: {reservations.filter((r) => r.Status === "Active").length}
+                </p>
+                <p>
+                  Cancelled Reservations: {reservations.filter((r) => r.Status === "Cancelled").length}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-100 rounded-lg shadow">
+              <h3 className="font-semibold mb-2">Reservations Per Date</h3>
+              {reservations.length > 0 ? (
+                <table className="w-full border-collapse border border-gray-300 text-center">
+                  <thead>
+                    <tr className="bg-gray-200">
+                      <th className="border border-gray-300 px-4 py-2">Date</th>
+                      <th className="border border-gray-300 px-4 py-2">Reservation Count</th>
+                      <th className="border border-gray-300 px-4 py-2">Status Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(
+                      reservations.reduce((acc, r) => {
+                        if (!acc[r.Date]) {
+                          acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
+                        }
+                        acc[r.Date].total += 1;
+                        if (r.Status === "Active") acc[r.Date].active += 1;
+                        if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
+                        return acc;
+                      }, {})
+                    ).map(([date, data]) => (
+                      <tr
+                        key={date}
+                        className="hover:bg-gray-100 transition-colors duration-200"
+                      >
+                        <td className="border border-gray-300 px-4 py-2 font-medium">{date}</td>
+                        <td className="border border-gray-300 px-4 py-2">{data.total}</td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2">
+                            Active: {data.active}
+                          </span>
+                          <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                            Cancelled: {data.cancelled}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No reservation data available.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
