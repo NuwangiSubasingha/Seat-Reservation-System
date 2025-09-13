@@ -118,21 +118,21 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 gap-6">
-              {seats.map((seat) => (
-                <div
-                  key={seat._id}
-                  className="flex flex-col items-center p-4 bg-gradient-to-b from-white to-blue-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
-                >
-                  <FaChair className="text-4xl text-blue-700 mb-2" />
-                  <span className="text-sm font-bold mb-2">{seat.SeatNumber}</span>
-                  <button
-                    onClick={() => removeSeat(seat._id)}
-                    className="px-3 py-1 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
-                  >
-                    Remove
-                  </button>
-                </div>
+            <div className="grid grid-cols-5 gap-4">
+  {seats.map((seat) => (
+    <div
+      key={seat._id}
+      className="flex flex-col items-center p-2 bg-gradient-to-b from-white to-blue-50 rounded-lg shadow-sm hover:shadow-md transition-all duration-300"
+    >
+      <FaChair className="text-3xl text-blue-700 mb-1" />
+      <span className="text-xs font-semibold mb-1">{seat.SeatNumber}</span>
+      <button
+        onClick={() => removeSeat(seat._id)}
+        className="px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
+      >
+        Remove
+      </button>
+    </div>
               ))}
             </div>
           </div>
