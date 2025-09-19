@@ -68,19 +68,21 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchReservations = async () => {
-    try {
-      let url = "/reservations/admin";
-      if (filter.value) {
-        url += `?${filter.type}=${filter.value}`;
-      }
-      const res = await API.get(url);
-      setReservations(res.data);
-    } catch (err) {
-      console.error("Error fetching reservations:", err);
-      alert("Failed to fetch reservations.");
+const fetchReservations = async () => {
+  try {
+    let url = "/reservations/admin";
+    if (filter.value) {
+      const queryParam = filter.type === "user" ? "intern" : filter.type;
+      url += `?${queryParam}=${filter.value}`;
     }
-  };
+    const res = await API.get(url);
+    setReservations(res.data);
+  } catch (err) {
+    console.error("Error fetching reservations:", err);
+    alert("Failed to fetch reservations.");
+  }
+};
+
 
   // Logout button
   const handleLogout = () => {
@@ -200,91 +202,90 @@ const AdminDashboard = () => {
           </div>
         )}
 
+{/* Reservations Tab */}
+{activeTab === "reservations" && (
+  <div>
+    <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
+      Manage Reservations
+    </h2>
 
-        {/* Reservations Tab */}
-        {activeTab === "reservations" && (
-          <div>
-            <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
-              Manage Reservations
-            </h2>
+    {/* Filter */}
+    <div className="flex items-center gap-4 mb-6">
+      <select
+        value={filter.type}
+        onChange={(e) =>
+          setFilter({ ...filter, type: e.target.value, value: "" })
+        }
+        className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+      >
+        <option value="date">Filter by Date</option>
+        <option value="user">Filter by User</option>
+      </select>
+      <input
+        type={filter.type === "date" ? "date" : "text"}
+        placeholder={filter.type === "user" ? "Enter User ID" : "Select a Date"}
+        value={filter.value}
+        onChange={(e) =>
+          setFilter({ ...filter, value: e.target.value })
+        }
+        className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
+      <button
+        onClick={fetchReservations}
+        className="px-5 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300"
+      >
+        🔍 Search
+      </button>
+    </div>
 
-            {/* Filter */}
-            <div className="flex items-center gap-4 mb-6">
-              <select
-                value={filter.type}
-                onChange={(e) =>
-                  setFilter({ ...filter, type: e.target.value, value: "" })
-                }
-                className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse border border-gray-300 shadow-sm">
+        <thead className="bg-blue-100">
+          <tr>
+            {["Reservation ID", "User ID", "Seat ID", "Date", "Time Slot", "Status"].map((th) => (
+              <th
+                key={th}
+                className="border border-gray-300 px-4 py-2 text-left text-gray-700"
               >
-                <option value="date">Filter by Date</option>
-                <option value="intern">Filter by Intern</option>
-              </select>
-              <input
-                type={filter.type === "date" ? "date" : "text"}
-                placeholder={
-                  filter.type === "intern" ? "Enter Intern ID" : "Select a Date"
-                }
-                value={filter.value}
-                onChange={(e) =>
-                  setFilter({ ...filter, value: e.target.value })
-                }
-                className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <button
-                onClick={fetchReservations}
-                className="px-5 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300"
-              >
-                🔍 Search
-              </button>
-            </div>
+                {th}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {reservations.length > 0 ? (
+            reservations.map((r) => (
+              <tr key={r.ReservationID} className="hover:bg-blue-50 transition-colors duration-200">
+                <td className="border border-gray-300 px-4 py-2">{r.ReadableID}</td>
+                <td className="border border-gray-300 px-4 py-2">{r.InternID?.userId || "-"}</td>
+                <td className="border border-gray-300 px-4 py-2">{r.SeatID?.seatId || r.SeatID?._id}</td>
+                <td className="border border-gray-300 px-4 py-2">{r.Date}</td>
+                <td className="border border-gray-300 px-4 py-2">{r.TimeSlot}</td>
+                <td className="border border-gray-300 px-4 py-2">
+                  <span
+                    className={`px-2 py-1 rounded-full font-semibold ${
+                      r.Status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {r.Status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="6" className="text-center py-6 text-gray-500 italic">
+                No reservations found.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300 shadow-sm">
-                <thead className="bg-blue-100">
-                  <tr>
-                    {["Reservation ID", "Intern ID", "Seat", "Date", "Time Slot", "Status"].map((th) => (
-                      <th
-                        key={th}
-                        className="border border-gray-300 px-4 py-2 text-left text-gray-700"
-                      >
-                        {th}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservations.length > 0 ? (
-                    reservations.map((r) => (
-                      <tr key={r.ReservationID} className="hover:bg-blue-50 transition-colors duration-200">
-                        <td className="border border-gray-300 px-4 py-2">{r.ReservationID}</td>
-                        <td className="border border-gray-300 px-4 py-2">{r.InternID}</td>
-                        <td className="border border-gray-300 px-4 py-2">{r.SeatID?.SeatNumber || "-"}</td>
-                        <td className="border border-gray-300 px-4 py-2">{r.Date}</td>
-                        <td className="border border-gray-300 px-4 py-2">{r.TimeSlot}</td>
-                        <td className="border border-gray-300 px-4 py-2">
-                          <span
-                            className={`px-2 py-1 rounded-full font-semibold ${
-                              r.Status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {r.Status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="text-center py-6 text-gray-500 italic">
-                        No reservations found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+
 
         {/* Reports Tab */}
         {activeTab === "reports" && (

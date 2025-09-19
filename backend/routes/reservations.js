@@ -9,16 +9,20 @@ const router = express.Router();
 router.get("/my", authMiddleware, async (req, res) => {
   try {
     const reservations = await Reservation.find({ InternID: req.user.id })
-      .populate("SeatID");
+      .populate("SeatID")
+      .populate("InternID", "userId");
 
-    res.json(reservations.map(r => ({
-      ReservationID: r._id, // consistent naming
-      InternID: r.InternID,
-      SeatID: r.SeatID,
-      Date: r.Date,
-      TimeSlot: r.TimeSlot,
-      Status: r.Status
-    })));
+    res.json(
+      reservations.map((r) => ({
+        ReservationID: r._id,
+        ReadableID: r.ReadableID,
+        InternID: r.InternID, // includes userId now
+        SeatID: r.SeatID,
+        Date: r.Date,
+        TimeSlot: r.TimeSlot,
+        Status: r.Status,
+      }))
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -31,19 +35,35 @@ router.post("/", authMiddleware, async (req, res) => {
     const InternID = req.user.id;
 
     // Prevent multiple bookings same day
-    const existingBooking = await Reservation.findOne({ InternID, Date, Status: "Active" });
+    const existingBooking = await Reservation.findOne({
+      InternID,
+      Date,
+      Status: "Active",
+    });
     if (existingBooking) {
-      return res.status(400).json({ error: "You can only book 1 seat per day" });
+      return res
+        .status(400)
+        .json({ error: "You can only book 1 seat per day" });
     }
 
     // Prevent seat double booking
-    const conflict = await Reservation.findOne({ SeatID, Date, Status: "Active" });
+    const conflict = await Reservation.findOne({
+      SeatID,
+      Date,
+      Status: "Active",
+    });
     if (conflict) {
       return res.status(400).json({ error: "Seat already reserved for this date" });
     }
 
     // Create reservation
-    const reservation = new Reservation({ InternID, SeatID, Date, TimeSlot, Status: "Active" });
+    const reservation = new Reservation({
+      InternID,
+      SeatID,
+      Date,
+      TimeSlot,
+      Status: "Active",
+    });
     await reservation.save();
 
     await Seat.findByIdAndUpdate(SeatID, { Status: "Unavailable" });
@@ -51,6 +71,8 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(201).json({
       message: "Reservation created",
       ReservationID: reservation._id,
+      ReadableID: reservation.ReadableID,
+      InternID,
       SeatID: reservation.SeatID,
       Date: reservation.Date,
       TimeSlot: reservation.TimeSlot,
@@ -76,7 +98,11 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 
     await Seat.findByIdAndUpdate(reservation.SeatID, { Status: "Available" });
 
-    res.json({ message: "Reservation cancelled", ReservationID: reservation._id });
+    res.json({
+      message: "Reservation cancelled",
+      ReservationID: reservation._id,
+      ReadableID: reservation.ReadableID,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -86,28 +112,39 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 router.get("/booked-seats/:date", async (req, res) => {
   try {
     const { date } = req.params;
-    const reservations = await Reservation.find({ Date: date, Status: "Active" }).populate("SeatID");
+    const reservations = await Reservation.find({ Date: date, Status: "Active" })
+      .populate("SeatID")
+      .populate("InternID", "userId");
+
     res.json(reservations);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ Admin - View all reservations (filter by date or intern)
+// ✅ Admin - View all reservations (filter by date or intern.userId)
 router.get("/admin", async (req, res) => {
   try {
     const { date, intern } = req.query;
     let query = {};
-
     if (date) query.Date = date;
-    if (intern) query.InternID = intern;
 
-    const reservations = await Reservation.find(query).populate("SeatID");
+    let reservations = await Reservation.find(query)
+      .populate("SeatID")
+      .populate({
+        path: "InternID",
+        select: "userId",
+        match: intern ? { userId: new RegExp(intern, "i") } : {}, // ✅ filter by userId
+      });
+
+    // remove reservations where InternID didn’t match
+    reservations = reservations.filter((r) => r.InternID);
 
     res.json(
       reservations.map((r) => ({
         ReservationID: r._id,
-        InternID: r.InternID,
+        ReadableID: r.ReadableID,
+        InternID: r.InternID, // includes userId
         SeatID: r.SeatID,
         Date: r.Date,
         TimeSlot: r.TimeSlot,
