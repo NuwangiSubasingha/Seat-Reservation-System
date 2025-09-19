@@ -116,39 +116,42 @@ const AdminDashboard = () => {
 
       {/* Content Section */}
       <div className="bg-white p-8 rounded-3xl shadow-2xl">
-        {/* Seats Tab */}
-        {activeTab === "seats" && (
-          <div>
-            <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
-              Manage Seats
-            </h2>
-            <div className="mb-6">
-              <button
-                onClick={addSeat}
-                className="px-5 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300"
-              >
-                ➕ Add Seat
-              </button>
-            </div>
-            <div className="grid grid-cols-5 gap-6">
-              {seats.map((seat) => (
-                <div
-                  key={seat._id}
-                  className="flex flex-col items-center p-4 bg-gradient-to-b from-white to-blue-50 rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
-                >
-                  <FaChair className="text-4xl text-blue-700 mb-2" />
-                  <span className="text-sm font-bold mb-2">{seat.SeatNumber}</span>
-                  <button
-                    onClick={() => removeSeat(seat._id)}
-                    className="px-3 py-1 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+       {/* Seats Tab */}
+{activeTab === "seats" && (
+  <div>
+    <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
+      Manage Seats
+    </h2>
+    <div className="mb-6">
+      <button
+        onClick={addSeat}
+        className="px-5 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300"
+      >
+        ➕ Add Seat
+      </button>
+    </div>
+    <div className="grid grid-cols-5 gap-1">
+      {seats.map((seat) => (
+       <div
+  key={seat._id}
+  className="flex flex-col items-center p-1 bg-gradient-to-b from-white to-blue-50 rounded-md shadow-sm hover:shadow-md transition-all duration-300 w-20 h-20"
+>
+  {/* smaller chair */}
+  <FaChair className="text-xl text-blue-700 mb-1" />
+  <span className="text-xs font-semibold mb-1">{seat.SeatNumber}</span>
+  <button
+    onClick={() => removeSeat(seat._id)}
+    className="px-2 py-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
+  >
+    Remove
+  </button>
+</div>
+
+      ))}
+    </div>
+  </div>
+)}
+
 
         {/* Reservations Tab */}
         {activeTab === "reservations" && (
