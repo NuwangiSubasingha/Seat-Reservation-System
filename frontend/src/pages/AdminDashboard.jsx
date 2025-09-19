@@ -8,6 +8,11 @@ const AdminDashboard = () => {
   const [reservations, setReservations] = useState([]);
   const [filter, setFilter] = useState({ type: "date", value: "" });
 
+  // 🔹 Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const seatsPerPage = 20;
+  const totalPages = 5;
+
   useEffect(() => {
     fetchSeats();
     if (activeTab === "reservations" || activeTab === "reports") {
@@ -25,26 +30,33 @@ const AdminDashboard = () => {
   };
 
   const addSeat = async () => {
-    const seatNumbers = seats.map(
-      (s) => parseInt(s.SeatNumber.replace(/\D/g, "")) || 0
-    );
-    const maxNumber = seatNumbers.length > 0 ? Math.max(...seatNumbers) : 0;
-    const newNumber = maxNumber + 1;
+  // 🔹 Limit to 100 seats
+  if (seats.length >= 100) {
+    alert("The system should only support a maximum of 100 users at a time.");
+    return;
+  }
 
-    const newSeat = {
-      seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`,
-      SeatNumber: `Seat ${newNumber}`,
-      Location: "Default Location",
-    };
+  const seatNumbers = seats.map(
+    (s) => parseInt(s.SeatNumber.replace(/\D/g, "")) || 0
+  );
+  const maxNumber = seatNumbers.length > 0 ? Math.max(...seatNumbers) : 0;
+  const newNumber = maxNumber + 1;
 
-    try {
-      const res = await API.post("/seats", newSeat);
-      setSeats([...seats, res.data]);
-    } catch (err) {
-      console.error("Error adding seat:", err);
-      alert("Failed to add seat.");
-    }
+  const newSeat = {
+    seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`,
+    SeatNumber: `Seat ${newNumber}`,
+    Location: "Default Location",
   };
+
+  try {
+    const res = await API.post("/seats", newSeat);
+    setSeats([...seats, res.data]);
+  } catch (err) {
+    console.error("Error adding seat:", err);
+    alert("Failed to add seat.");
+  }
+};
+
 
   const removeSeat = async (seatId) => {
     try {
@@ -77,8 +89,11 @@ const AdminDashboard = () => {
     window.location.href = "/";
   };
 
+  // 🔹 Slice seats for current page
+  const startIndex = (currentPage - 1) * seatsPerPage;
+  const currentSeats = seats.slice(startIndex, startIndex + seatsPerPage);
+
   return (
-    // <div className="min-h-screen p-10 bg-gradient-to-r from-blue-300 to-blue-900">
     <div className="min-h-screen p-10 bg-gradient-to-r from-blue-100 to-blue-200">
       {/* Header with title and logout */}
       <div className="flex justify-between items-center mb-6">
@@ -116,41 +131,74 @@ const AdminDashboard = () => {
 
       {/* Content Section */}
       <div className="bg-white p-8 rounded-3xl shadow-2xl">
-       {/* Seats Tab */}
-{activeTab === "seats" && (
-  <div>
-    <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
-      Manage Seats
-    </h2>
-    <div className="mb-6">
-      <button
-        onClick={addSeat}
-        className="px-5 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300"
-      >
-        ➕ Add Seat
-      </button>
-    </div>
-    <div className="grid grid-cols-5 gap-1">
-      {seats.map((seat) => (
-       <div
-  key={seat._id}
-  className="flex flex-col items-center p-1 bg-gradient-to-b from-white to-blue-50 rounded-md shadow-sm hover:shadow-md transition-all duration-300 w-20 h-20"
->
-  {/* smaller chair */}
-  <FaChair className="text-xl text-blue-700 mb-1" />
-  <span className="text-xs font-semibold mb-1">{seat.SeatNumber}</span>
-  <button
-    onClick={() => removeSeat(seat._id)}
-    className="px-2 py-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
-  >
-    Remove
-  </button>
-</div>
+        {/* Seats Tab */}
+        {activeTab === "seats" && (
+          <div>
+            <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
+              Manage Seats
+            </h2>
+            <div className="mb-6">
+              <button
+                onClick={addSeat}
+                className="px-5 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300"
+              >
+                ➕ Add Seat
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {currentSeats.map((seat) => (
+                <div
+                  key={seat._id}
+                  className="flex flex-col items-center p-1 bg-gradient-to-b from-white to-blue-50 rounded-md shadow-sm hover:shadow-md transition-all duration-300 w-20 h-20"
+                >
+                  <FaChair className="text-xl text-blue-700 mb-1" />
+                  <span className="text-xs font-semibold mb-1">
+                    {seat.SeatNumber}
+                  </span>
+                  <button
+                    onClick={() => removeSeat(seat._id)}
+                    className="px-2 py-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
 
-      ))}
-    </div>
-  </div>
-)}
+            {/* 🔹 Pagination Controls */}
+            <div className="flex justify-center mt-6 space-x-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => prev - 1)}
+                className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+              >
+                ⬅ Prev
+              </button>
+
+              {[...Array(totalPages)].map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(index + 1)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === index + 1
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => prev + 1)}
+                className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+              >
+                Next ➡
+              </button>
+            </div>
+          </div>
+        )}
 
 
         {/* Reservations Tab */}
