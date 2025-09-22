@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { FaChair } from "react-icons/fa";
 import API from "../api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("seats");
@@ -8,7 +10,7 @@ const AdminDashboard = () => {
   const [reservations, setReservations] = useState([]);
   const [filter, setFilter] = useState({ type: "date", value: "" });
 
-  // 🔹 Pagination state
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const seatsPerPage = 20;
   const totalPages = 5;
@@ -30,33 +32,31 @@ const AdminDashboard = () => {
   };
 
   const addSeat = async () => {
-  // 🔹 Limit to 100 seats
-  if (seats.length >= 100) {
-    alert("The system should only support a maximum of 100 users at a time.");
-    return;
-  }
+    if (seats.length >= 100) {
+      alert("The system should only support a maximum of 100 users at a time.");
+      return;
+    }
 
-  const seatNumbers = seats.map(
-    (s) => parseInt(s.SeatNumber.replace(/\D/g, "")) || 0
-  );
-  const maxNumber = seatNumbers.length > 0 ? Math.max(...seatNumbers) : 0;
-  const newNumber = maxNumber + 1;
+    const seatNumbers = seats.map(
+      (s) => parseInt(s.SeatNumber.replace(/\D/g, "")) || 0
+    );
+    const maxNumber = seatNumbers.length > 0 ? Math.max(...seatNumbers) : 0;
+    const newNumber = maxNumber + 1;
 
-  const newSeat = {
-    seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`,
-    SeatNumber: `Seat ${newNumber}`,
-    Location: "Default Location",
+    const newSeat = {
+      seatId: `S${(seats.length + 1).toString().padStart(3, "0")}`,
+      SeatNumber: `Seat ${newNumber}`,
+      Location: "Default Location",
+    };
+
+    try {
+      const res = await API.post("/seats", newSeat);
+      setSeats([...seats, res.data]);
+    } catch (err) {
+      console.error("Error adding seat:", err);
+      alert("Failed to add seat.");
+    }
   };
-
-  try {
-    const res = await API.post("/seats", newSeat);
-    setSeats([...seats, res.data]);
-  } catch (err) {
-    console.error("Error adding seat:", err);
-    alert("Failed to add seat.");
-  }
-};
-
 
   const removeSeat = async (seatId) => {
     try {
@@ -68,36 +68,108 @@ const AdminDashboard = () => {
     }
   };
 
-const fetchReservations = async () => {
-  try {
-    let url = "/reservations/admin";
-    if (filter.value) {
-      const queryParam = filter.type === "user" ? "intern" : filter.type;
-      url += `?${queryParam}=${filter.value}`;
+  const fetchReservations = async () => {
+    try {
+      let url = "/reservations/admin";
+      if (filter.value) {
+        const queryParam = filter.type === "user" ? "intern" : filter.type;
+        url += `?${queryParam}=${filter.value}`;
+      }
+      const res = await API.get(url);
+      setReservations(res.data);
+    } catch (err) {
+      console.error("Error fetching reservations:", err);
+      alert("Failed to fetch reservations.");
     }
-    const res = await API.get(url);
-    setReservations(res.data);
-  } catch (err) {
-    console.error("Error fetching reservations:", err);
-    alert("Failed to fetch reservations.");
-  }
-};
+  };
 
+  // PDF Export
+  const generatePDF = () => {
+    const doc = new jsPDF();
 
-  // Logout button
+    doc.setFontSize(20);
+    doc.setTextColor(40, 60, 120);
+    doc.text("Reservations Report", 105, 15, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
+
+    const totalSeats = seats.length;
+    const availableSeats = seats.filter((s) => s.Status !== "Unavailable").length;
+    const unavailableSeats = seats.filter((s) => s.Status === "Unavailable").length;
+    const totalReservations = reservations.length;
+    const activeReservations = reservations.filter((r) => r.Status === "Active").length;
+    const cancelledReservations = reservations.filter((r) => r.Status === "Cancelled").length;
+
+    doc.setFontSize(14);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Summary", 14, 40);
+
+    autoTable(doc, {
+      startY: 45,
+      theme: "striped",
+      styles: { fontSize: 11, cellPadding: 3 },
+      head: [["Category", "Value"]],
+      body: [
+        ["Total Seats", totalSeats],
+        ["Available Seats", availableSeats],
+        ["Unavailable Seats", unavailableSeats],
+        ["Total Reservations", totalReservations],
+        ["Active Reservations", activeReservations],
+        ["Cancelled Reservations", cancelledReservations],
+      ],
+    });
+
+    const tableColumn = ["Date", "Total Reservations", "Active", "Cancelled"];
+    const tableRows = [];
+
+    const grouped = reservations.reduce((acc, r) => {
+      if (!acc[r.Date]) acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
+      acc[r.Date].total += 1;
+      if (r.Status === "Active") acc[r.Date].active += 1;
+      if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
+      return acc;
+    }, {});
+
+    Object.entries(grouped).forEach(([date, data]) => {
+      tableRows.push([date, data.total, data.active, data.cancelled]);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: doc.lastAutoTable.finalY + 15,
+      theme: "grid",
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontSize: 12,
+        halign: "center",
+      },
+      bodyStyles: { halign: "center" },
+      alternateRowStyles: { fillColor: [240, 248, 255] },
+    });
+
+    doc.save("reservations_report.pdf");
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     sessionStorage.removeItem("token");
     window.location.href = "/";
   };
 
-  // 🔹 Slice seats for current page
   const startIndex = (currentPage - 1) * seatsPerPage;
   const currentSeats = seats.slice(startIndex, startIndex + seatsPerPage);
 
+  // Today's date string
+  const today = new Date().toISOString().split("T")[0];
+  const todaysReservations = reservations.filter((r) => r.Date === today);
+
   return (
     <div className="min-h-screen p-10 bg-gradient-to-r from-blue-100 to-blue-200">
-      {/* Header with title and logout */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="flex-1 text-center text-4xl font-extrabold text-blue-900 drop-shadow-lg">
           Admin Dashboard
@@ -131,7 +203,7 @@ const fetchReservations = async () => {
         ))}
       </div>
 
-      {/* Content Section */}
+      {/* Content */}
       <div className="bg-white p-8 rounded-3xl shadow-2xl">
         {/* Seats Tab */}
         {activeTab === "seats" && (
@@ -167,7 +239,6 @@ const fetchReservations = async () => {
               ))}
             </div>
 
-            {/* 🔹 Pagination Controls */}
             <div className="flex justify-center mt-6 space-x-2">
               <button
                 disabled={currentPage === 1}
@@ -202,152 +273,236 @@ const fetchReservations = async () => {
           </div>
         )}
 
-{/* Reservations Tab */}
-{activeTab === "reservations" && (
+        {/* Reservations Tab */}
+        {activeTab === "reservations" && (
+          <div>
+            <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
+              Manage Reservations
+            </h2>
+
+            <div className="flex items-center gap-4 mb-6">
+              <select
+                value={filter.type}
+                onChange={(e) =>
+                  setFilter({ ...filter, type: e.target.value, value: "" })
+                }
+                className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="date">Filter by Date</option>
+                <option value="user">Filter by User</option>
+              </select>
+              <input
+                type={filter.type === "date" ? "date" : "text"}
+                placeholder={filter.type === "user" ? "Enter User ID" : "Select a Date"}
+                value={filter.value}
+                onChange={(e) => setFilter({ ...filter, value: e.target.value })}
+                className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <button
+                onClick={fetchReservations}
+                className="px-5 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300"
+              >
+                🔍 Search
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 shadow-sm">
+                <thead className="bg-blue-100">
+                  <tr>
+                    {[
+                      "Reservation ID",
+                      "User ID",
+                      "Seat ID",
+                      "Date",
+                      "Time Slot",
+                      "Status",
+                    ].map((th) => (
+                      <th
+                        key={th}
+                        className="border border-gray-300 px-4 py-2 text-left text-gray-700"
+                      >
+                        {th}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reservations.length > 0 ? (
+                    reservations.map((r) => (
+                      <tr key={r.ReservationID} className="hover:bg-blue-50 transition-colors duration-200">
+                        <td className="border border-gray-300 px-4 py-2">{r.ReadableID}</td>
+                        <td className="border border-gray-300 px-4 py-2">{r.InternID?.userId || "-"}</td>
+                        <td className="border border-gray-300 px-4 py-2">{r.SeatID?.seatId || r.SeatID?._id}</td>
+                        <td className="border border-gray-300 px-4 py-2">{r.Date}</td>
+                        <td className="border border-gray-300 px-4 py-2">{r.TimeSlot}</td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <span className={`px-2 py-1 rounded-full font-semibold ${
+                            r.Status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                          }`}>
+                            {r.Status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="text-center py-6 text-gray-500 italic">
+                        No reservations found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+   {/* Reports Tab */}
+{activeTab === "reports" && (
   <div>
     <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
-      Manage Reservations
+      Reports
     </h2>
 
-    {/* Filter */}
-    <div className="flex items-center gap-4 mb-6">
-      <select
-        value={filter.type}
-        onChange={(e) =>
-          setFilter({ ...filter, type: e.target.value, value: "" })
-        }
-        className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="date">Filter by Date</option>
-        <option value="user">Filter by User</option>
-      </select>
-      <input
-        type={filter.type === "date" ? "date" : "text"}
-        placeholder={filter.type === "user" ? "Enter User ID" : "Select a Date"}
-        value={filter.value}
-        onChange={(e) =>
-          setFilter({ ...filter, value: e.target.value })
-        }
-        className="px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-      />
+    {/* Download PDF Button */}
+    <div className="flex justify-end mb-4">
       <button
-        onClick={fetchReservations}
-        className="px-5 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300"
+        onClick={generatePDF}
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
       >
-        🔍 Search
+        ⬇ Download PDF
       </button>
     </div>
 
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-gray-300 shadow-sm">
-        <thead className="bg-blue-100">
-          <tr>
-            {["Reservation ID", "User ID", "Seat ID", "Date", "Time Slot", "Status"].map((th) => (
-              <th
-                key={th}
-                className="border border-gray-300 px-4 py-2 text-left text-gray-700"
-              >
-                {th}
+    {/* Daily Summaries */}
+    <div className="grid grid-cols-2 gap-6 mb-6">
+      {/* Today's Seat Summary */}
+      <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+        <h3 className="font-extrabold text-2xl mb-3 text-blue-700">
+          Today's Seat Summary
+        </h3>
+        {seats.length > 0 ? (
+          (() => {
+            const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+            const bookedSeatIdsToday = reservations
+              .filter((r) => r.Date === today)
+              .map((r) => r.SeatID?._id || r.SeatID?.seatId);
+
+            const unavailableSeats = seats.filter((s) =>
+              bookedSeatIdsToday.includes(s._id) || bookedSeatIdsToday.includes(s.seatId)
+            ).length;
+            const availableSeats = seats.length - unavailableSeats;
+
+            return (
+              <>
+                <p>Total Seats: {seats.length}</p>
+                <p>Available Seats Today: {availableSeats}</p>
+                <p>Unavailable Seats Today: {unavailableSeats}</p>
+              </>
+            );
+          })()
+        ) : (
+          <p className="text-gray-500 italic">No seat data available today.</p>
+        )}
+      </div>
+
+      {/* Today's Reservation Summary */}
+      <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+        <h3 className="font-extrabold text-2xl mb-3 text-blue-700">
+          Today's Reservation Summary
+        </h3>
+        {reservations.length > 0 ? (
+          (() => {
+            const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+            const todaysReservations = reservations.filter(
+              (r) => r.Date === today
+            );
+            const activeCount = todaysReservations.filter(
+              (r) => r.Status === "Active"
+            ).length;
+            const cancelledCount = todaysReservations.filter(
+              (r) => r.Status === "Cancelled"
+            ).length;
+
+            return (
+              <>
+                <p>Total Reservations: {todaysReservations.length}</p>
+                <p>Active Reservations: {activeCount}</p>
+                <p>Cancelled Reservations: {cancelledCount}</p>
+              </>
+            );
+          })()
+        ) : (
+          <p className="text-gray-500 italic">No reservations for today.</p>
+        )}
+      </div>
+    </div>
+
+    {/* Reservations Per Date Table */}
+    <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+      <h3 className="font-extrabold text-2xl mb-4 text-blue-700">
+        Reservations Per Date
+      </h3>
+      {reservations.length > 0 ? (
+        <table className="w-full border-collapse border border-gray-300 text-center">
+          <thead>
+            <tr className="bg-blue-50">
+              <th className="border border-gray-300 px-4 py-2">Date</th>
+              <th className="border border-gray-300 px-4 py-2">
+                Reservation Count
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {reservations.length > 0 ? (
-            reservations.map((r) => (
-              <tr key={r.ReservationID} className="hover:bg-blue-50 transition-colors duration-200">
-                <td className="border border-gray-300 px-4 py-2">{r.ReadableID}</td>
-                <td className="border border-gray-300 px-4 py-2">{r.InternID?.userId || "-"}</td>
-                <td className="border border-gray-300 px-4 py-2">{r.SeatID?.seatId || r.SeatID?._id}</td>
-                <td className="border border-gray-300 px-4 py-2">{r.Date}</td>
-                <td className="border border-gray-300 px-4 py-2">{r.TimeSlot}</td>
+              <th className="border border-gray-300 px-4 py-2">
+                Status Summary
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(
+              reservations.reduce((acc, r) => {
+                if (!acc[r.Date])
+                  acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
+                acc[r.Date].total += 1;
+                if (r.Status === "Active") acc[r.Date].active += 1;
+                if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
+                return acc;
+              }, {})
+            ).map(([date, data]) => (
+              <tr
+                key={date}
+                className="hover:bg-blue-50 transition-colors duration-200"
+              >
+                <td className="border border-gray-300 px-4 py-2 font-medium">
+                  {date}
+                </td>
                 <td className="border border-gray-300 px-4 py-2">
-                  <span
-                    className={`px-2 py-1 rounded-full font-semibold ${
-                      r.Status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {r.Status}
+                  {data.total}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full mr-2">
+                    Active: {data.active}
+                  </span>
+                  <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full">
+                    Cancelled: {data.cancelled}
                   </span>
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="6" className="text-center py-6 text-gray-500 italic">
-                No reservations found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-gray-500 text-center py-4 italic">
+          No reservation data available.
+        </p>
+      )}
     </div>
   </div>
 )}
 
 
 
-        {/* Reports Tab */}
-        {activeTab === "reports" && (
-          <div>
-            <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
-              Reports
-            </h2>
+               
 
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-                <h3 className="font-extrabold text-2xl mb-3 text-blue-700">Seat Summary</h3>
-                <p>Total Seats: {seats.length}</p>
-                <p>Available Seats: {seats.filter((s) => s.Status !== "Unavailable").length}</p>
-                <p>Unavailable Seats: {seats.filter((s) => s.Status === "Unavailable").length}</p>
-              </div>
-
-              <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-                <h3 className="font-extrabold text-2xl mb-3 text-blue-700">Reservation Summary</h3>
-                <p>Total Reservations: {reservations.length}</p>
-                <p>Active Reservations: {reservations.filter((r) => r.Status === "Active").length}</p>
-                <p>Cancelled Reservations: {reservations.filter((r) => r.Status === "Cancelled").length}</p>
-              </div>
-            </div>
-
-            <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-              <h3 className="font-extrabold text-2xl mb-4 text-blue-700">Reservations Per Date</h3>
-              {reservations.length > 0 ? (
-                <table className="w-full border-collapse border border-gray-300 text-center">
-                  <thead>
-                    <tr className="bg-blue-50">
-                      <th className="border border-gray-300 px-4 py-2">Date</th>
-                      <th className="border border-gray-300 px-4 py-2">Reservation Count</th>
-                      <th className="border border-gray-300 px-4 py-2">Status Summary</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(
-                      reservations.reduce((acc, r) => {
-                        if (!acc[r.Date]) acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
-                        acc[r.Date].total += 1;
-                        if (r.Status === "Active") acc[r.Date].active += 1;
-                        if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
-                        return acc;
-                      }, {})
-                    ).map(([date, data]) => (
-                      <tr key={date} className="hover:bg-blue-50 transition-colors duration-200">
-                        <td className="border border-gray-300 px-4 py-2 font-medium">{date}</td>
-                        <td className="border border-gray-300 px-4 py-2">{data.total}</td>
-                        <td className="border border-gray-300 px-4 py-2">
-                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full mr-2">Active: {data.active}</span>
-                          <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full">Cancelled: {data.cancelled}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-gray-500 text-center py-4 italic">No reservation data available.</p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

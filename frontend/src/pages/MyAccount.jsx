@@ -83,8 +83,12 @@ const MyAccount = () => {
     );
 
   return (
-    <div className="min-h-screen p-10 bg-gradient-to-r from-blue-200 to-blue-900 ">
-      <div className="max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
+  <div className="relative min-h-screen p-10 bg-gradient-to-r from-blue-50 to-blue-300">
+  {/* Overlay */}
+  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+
+  {/* Content */}
+  <div className="relative z-10 max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-4xl font-extrabold mb-6 text-center text-blue-900 drop-shadow-lg tracking-wide">
@@ -125,72 +129,75 @@ const MyAccount = () => {
               const isFuture = reservationDate >= new Date() && resv.Status === "Active";
 
               return (
-                <div
-                  key={resv.ReservationID || resv._id}
-                  className={`p-1 rounded-2xl shadow-lg border relative transition transform hover:scale-[1.02] hover:shadow-2xl ${
-                    isFuture
-                      ? "bg-gradient-to-br from-green-50 to-yellow-100 border-yellow-400"
-                      : "bg-gradient-to-br from-gray-100 to-gray-200 border-gray-400"
-                  }`}
-                >
-                  {/* Ribbon */}
-                  <span
-                    className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full shadow-md ${
-                      isFuture
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-400 text-white"
-                    }`}
-                  >
-                    {isFuture ? "Upcoming" : "Past"}
-                  </span>
+   <div
+  key={resv.ReservationID || resv._id}
+  className={`p-1 rounded-2xl shadow-lg border relative transition transform hover:scale-[1.02] hover:shadow-2xl ${
+    isFuture
+      ? "bg-gradient-to-br from-sky-100 to-sky-200 border-sky-400"
+      : "bg-gradient-to-br from-gray-100 to-blue-100 border-blue-300"
+  }`}
+>
+  {/* Ribbon */}
+  <span
+    className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full shadow-md ${
+      isFuture
+        ? "bg-sky-600 text-white"
+        : "bg-blue-400 text-white"
+    }`}
+  >
+    {isFuture ? "Upcoming" : "Past"}
+  </span>
 
-                  {/* Details */}
-                  <div className="space-y-2">
-                    <p className="font-semibold text-gray-800">
-                      Seat Number:{" "}
-                      <span className="text-blue-700 font-bold text-lg">
-                        {resv.SeatID?.SeatNumber || "Unknown"}
-                      </span>
-                    </p>
-                    <p className="text-gray-600">
-                      Booking Date:{" "}
-                      <span className="font-medium">
-                        {reservationDate.toLocaleDateString()}
-                      </span>
-                    </p>
-                    <p className="text-gray-600">
-                      Time Slot:{" "}
-                      <span className="font-medium">{resv.TimeSlot}</span>
-                    </p>
-                    <p
-                      className={`font-bold mt-1 text-lg ${
-                        resv.Status === "Active"
-                          ? "text-green-700"
-                          : "text-red-600"
-                      }`}
-                    >
-                      Status: {resv.Status}
-                    </p>
-                  </div>
+  {/* Details */}
+  <div className="space-y-2">
+    <p className="font-semibold text-gray-900">
+      Seat Number:{" "}
+      <span className="text-blue-800 font-bold text-lg">
+        {resv.SeatID?.SeatNumber || "Unknown"}
+      </span>
+    </p>
+    <p className="text-gray-700">
+      Booking Date:{" "}
+      <span className="font-medium">
+        {reservationDate.toLocaleDateString()}
+      </span>
+    </p>
+    <p className="text-gray-700">
+      Time Slot:{" "}
+      <span className="font-medium">{resv.TimeSlot}</span>
+    </p>
+    <p
+      className={`font-bold mt-1 text-lg ${
+        resv.Status === "Active"
+          ? "text-sky-700"
+          : "text-red-600"
+      }`}
+    >
+      Status: {resv.Status}
+    </p>
+  </div>
 
-                  {/* Actions */}
-                  <div className="mt-4 flex gap-2">
-                    {isFuture ? (
-                      <button
-                        onClick={() =>
-                          cancelReservation(resv.ReservationID || resv._id)
-                        }
-                        className="flex-1 px-5 py-1 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 hover:shadow-lg transition"
-                      >
-                        Cancel
-                      </button>
-                    ) : (
-                      <span className="flex-1 text-center text-gray-500 italic py-1">
-                        Past / Cancelled
-                      </span>
-                    )}
-                  </div>
-                </div>
+  {/* Actions */}
+  <div className="mt-4 flex gap-2">
+    {isFuture ? (
+      <button
+        onClick={() =>
+          cancelReservation(resv.ReservationID || resv._id)
+        }
+        className="flex-1 px-5 py-1 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 hover:shadow-lg transition"
+      >
+        Cancel
+      </button>
+    ) : (
+      <span className="flex-1 text-center text-gray-500 italic py-1">
+        Past / Cancelled
+      </span>
+    )}
+  </div>
+</div>
+
+
+
               );
             })}
           </div>
