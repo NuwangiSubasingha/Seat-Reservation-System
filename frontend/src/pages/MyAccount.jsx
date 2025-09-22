@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ for navigation
 import API from "../api";
+import { QRCodeSVG } from "qrcode.react"; // ✅ QR code import
 
 const MyAccount = () => {
   const [user, setUser] = useState({});
@@ -66,11 +67,23 @@ const MyAccount = () => {
     }
   };
 
-  // ✅ Logout function
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/"); // redirect to login
+  };
+
+  const downloadQR = (id, seatNumber) => {
+    const svg = document.getElementById(id);
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgBlob = new Blob([serializer.serializeToString(svg)], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(svgBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Reservation-${seatNumber}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading)
@@ -83,12 +96,12 @@ const MyAccount = () => {
     );
 
   return (
-  <div className="relative min-h-screen p-10 bg-gradient-to-r from-blue-50 to-blue-300">
-  {/* Overlay */}
-  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+    <div className="relative min-h-screen p-10 bg-gradient-to-r from-blue-50 to-blue-300">
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black bg-opacity-20"></div>
 
-  {/* Content */}
-  <div className="relative z-10 max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
+      {/* Content */}
+      <div className="relative z-10 max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-4xl font-extrabold mb-6 text-center text-blue-900 drop-shadow-lg tracking-wide">
@@ -104,12 +117,11 @@ const MyAccount = () => {
 
         {user.name && (
           <p className="text-3xl text-center text-black mb-10">
-  Welcome,{" "}
-  <span className="font-bold text-3xl text-blue-800 bg-blue-100 px-3 py-1 rounded-lg shadow-sm">
-    {user.name}
-  </span>
-</p>
-
+            Welcome,{" "}
+            <span className="font-bold text-3xl text-blue-800 bg-blue-100 px-3 py-1 rounded-lg shadow-sm">
+              {user.name}
+            </span>
+          </p>
         )}
 
         {/* Section Title */}
@@ -128,77 +140,85 @@ const MyAccount = () => {
               const reservationDate = new Date(resv.Date);
               const isFuture = reservationDate >= new Date() && resv.Status === "Active";
 
-              return (
-   <div
-  key={resv.ReservationID || resv._id}
-  className={`p-1 rounded-2xl shadow-lg border relative transition transform hover:scale-[1.02] hover:shadow-2xl ${
-    isFuture
-      ? "bg-gradient-to-br from-sky-100 to-sky-200 border-sky-400"
-      : "bg-gradient-to-br from-gray-100 to-blue-100 border-blue-300"
-  }`}
->
-  {/* Ribbon */}
-  <span
-    className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full shadow-md ${
-      isFuture
-        ? "bg-sky-600 text-white"
-        : "bg-blue-400 text-white"
-    }`}
+return (
+  <div
+    key={resv.ReservationID || resv._id}
+    className={`p-3 rounded-xl shadow-md border transition transform hover:scale-[1.01] hover:shadow-lg bg-blue-50 flex justify-between items-start gap-4`}
   >
-    {isFuture ? "Upcoming" : "Past"}
-  </span>
+    {/* Left: Details */}
+    <div className="flex-1 space-y-1 text-sm">
+      <p>
+        <span className="font-semibold">Seat Number:</span>{" "}
+        <span className="text-blue-800 font-bold">{resv.SeatID?.SeatNumber || "Unknown"}</span>
+      </p>
+      <p>
+        <span className="font-semibold">Booking Date:</span>{" "}
+        <span>{reservationDate.toLocaleDateString()}</span>
+      </p>
+      <p>
+        <span className="font-semibold">Time Slot:</span>{" "}
+        <span>{resv.TimeSlot}</span>
+      </p>
+      <p>
+        <span className="font-semibold">Status:</span>{" "}
+        <span className={`${resv.Status === "Active" ? "text-sky-700 font-bold" : "text-red-600 font-bold"}`}>
+          {resv.Status}
+        </span>
+      </p>
 
-  {/* Details */}
-  <div className="space-y-2">
-    <p className="font-semibold text-gray-900">
-      Seat Number:{" "}
-      <span className="text-blue-800 font-bold text-lg">
-        {resv.SeatID?.SeatNumber || "Unknown"}
-      </span>
-    </p>
-    <p className="text-gray-700">
-      Booking Date:{" "}
-      <span className="font-medium">
-        {reservationDate.toLocaleDateString()}
-      </span>
-    </p>
-    <p className="text-gray-700">
-      Time Slot:{" "}
-      <span className="font-medium">{resv.TimeSlot}</span>
-    </p>
-    <p
-      className={`font-bold mt-1 text-lg ${
-        resv.Status === "Active"
-          ? "text-sky-700"
-          : "text-red-600"
-      }`}
-    >
-      Status: {resv.Status}
-    </p>
-  </div>
+      {/* Actions */}
+      {isFuture && (
+        <button
+          onClick={() => cancelReservation(resv.ReservationID || resv._id)}
+          className="mt-2 w-full px-3 py-1 bg-red-500 text-white font-semibold rounded-lg shadow-sm hover:bg-red-600 transition"
+        >
+          Cancel
+        </button>
+      )}
+    </div>
 
-  {/* Actions */}
-  <div className="mt-4 flex gap-2">
+    {/* Right: QR Code or Past/Cancelled Message */}
     {isFuture ? (
-      <button
-        onClick={() =>
-          cancelReservation(resv.ReservationID || resv._id)
-        }
-        className="flex-1 px-5 py-1 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 hover:shadow-lg transition"
-      >
-        Cancel
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <div className="relative">
+          <QRCodeSVG
+            id={`qr-${resv.ReservationID || resv._id}`}
+            value={`${resv.ReservationID || resv._id}`}
+            size={100}
+            bgColor="#ffffff"
+            fgColor="#0ea5e9"
+            level="H"
+            includeMargin={true}
+          />
+          <span className="absolute -top-4 -right-1 bg-sky-600 text-white text-[10px] font-bold px-1 py-[1px] rounded">
+  Upcoming
+</span>
+
+        </div>
+        <button
+          onClick={() =>
+            downloadQR(
+              `qr-${resv.ReservationID || resv._id}`,
+              resv.SeatID?.SeatNumber || "Unknown"
+            )
+          }
+          className="px-3 py-0.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600 transition"
+        >
+          Download QR
+        </button>
+      </div>
     ) : (
       <span className="flex-1 text-center text-gray-500 italic py-1">
         Past / Cancelled
       </span>
     )}
   </div>
-</div>
+);
 
 
 
-              );
+
+              
             })}
           </div>
         )}
