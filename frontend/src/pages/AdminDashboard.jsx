@@ -83,28 +83,41 @@ const AdminDashboard = () => {
     }
   };
 
-  // PDF Export
-  const generatePDF = () => {
+   // ✅ Daily Report PDF
+  const generateDailyPDF = () => {
     const doc = new jsPDF();
+    const today = new Date().toISOString().split("T")[0];
+    const todaysReservations = reservations.filter((r) => r.Date === today);
 
     doc.setFontSize(20);
     doc.setTextColor(40, 60, 120);
-    doc.text("Reservations Report", 105, 15, { align: "center" });
+    doc.text("Daily Reservations Report", 105, 15, { align: "center" });
 
     doc.setFontSize(12);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
 
     const totalSeats = seats.length;
-    const availableSeats = seats.filter((s) => s.Status !== "Unavailable").length;
-    const unavailableSeats = seats.filter((s) => s.Status === "Unavailable").length;
-    const totalReservations = reservations.length;
-    const activeReservations = reservations.filter((r) => r.Status === "Active").length;
-    const cancelledReservations = reservations.filter((r) => r.Status === "Cancelled").length;
+    const bookedSeatIdsToday = todaysReservations.map(
+      (r) => r.SeatID?._id || r.SeatID?.seatId
+    );
+    const unavailableSeats = seats.filter(
+      (s) =>
+        bookedSeatIdsToday.includes(s._id) ||
+        bookedSeatIdsToday.includes(s.seatId)
+    ).length;
+    const availableSeats = seats.length - unavailableSeats;
 
+    const activeReservations = todaysReservations.filter(
+      (r) => r.Status === "Active"
+    ).length;
+    const cancelledReservations = todaysReservations.filter(
+      (r) => r.Status === "Cancelled"
+    ).length;
+
+    // ✅ Summary Table
     doc.setFontSize(14);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Summary", 14, 40);
+    doc.text("Today's Summary", 14, 40);
 
     autoTable(doc, {
       startY: 45,
@@ -115,44 +128,112 @@ const AdminDashboard = () => {
         ["Total Seats", totalSeats],
         ["Available Seats", availableSeats],
         ["Unavailable Seats", unavailableSeats],
-        ["Total Reservations", totalReservations],
+        ["Total Reservations", todaysReservations.length],
         ["Active Reservations", activeReservations],
         ["Cancelled Reservations", cancelledReservations],
       ],
     });
 
-    const tableColumn = ["Date", "Total Reservations", "Active", "Cancelled"];
-    const tableRows = [];
+    // ✅ Booking Details
+    if (todaysReservations.length > 0) {
+      const tableRows = todaysReservations.map((r) => [
+        r.InternID?.Name || r.InternID?.userId || "N/A",
+        r.SeatID?.SeatNumber || r.SeatID?.seatId || "N/A",
+        r.Status,
+      ]);
 
-    const grouped = reservations.reduce((acc, r) => {
-      if (!acc[r.Date]) acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
-      acc[r.Date].total += 1;
-      if (r.Status === "Active") acc[r.Date].active += 1;
-      if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
-      return acc;
-    }, {});
+      autoTable(doc, {
+        head: [["User", "Seat Number", "Status"]],
+        body: tableRows,
+        startY: doc.lastAutoTable.finalY + 15,
+        theme: "grid",
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      });
+    } else {
+      autoTable(doc, {
+        head: [["User", "Seat Number", "Status"]],
+        body: [["No reservations today", "-", "-"]],
+        startY: doc.lastAutoTable.finalY + 15,
+        theme: "grid",
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      });
+    }
 
-    Object.entries(grouped).forEach(([date, data]) => {
-      tableRows.push([date, data.total, data.active, data.cancelled]);
-    });
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: doc.lastAutoTable.finalY + 15,
-      theme: "grid",
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontSize: 12,
-        halign: "center",
-      },
-      bodyStyles: { halign: "center" },
-      alternateRowStyles: { fillColor: [240, 248, 255] },
-    });
-
-    doc.save("reservations_report.pdf");
+    doc.save(`daily_report_${today}.pdf`);
   };
+
+  // ✅ Monthly Report PDF (Reservations Per Date table)
+  const generateMonthlyPDF = () => {
+    const doc = new jsPDF();
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    // Filter this month's reservations
+    const monthlyReservations = reservations.filter((r) => {
+      const [y, m] = r.Date.split("-"); // "YYYY-MM-DD"
+      return parseInt(y) === year && parseInt(m) === month;
+    });
+
+    doc.setFontSize(20);
+    doc.setTextColor(40, 60, 120);
+    doc.text("Monthly Reservations Report", 105, 15, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Month: ${year}-${month.toString().padStart(2, "0")}`, 14, 25);
+    doc.text(`Generated on: ${now.toLocaleString()}`, 14, 32);
+
+    if (monthlyReservations.length > 0) {
+      // Group by date
+      const grouped = monthlyReservations.reduce((acc, r) => {
+        if (!acc[r.Date]) acc[r.Date] = { total: 0, active: 0, cancelled: 0 };
+        acc[r.Date].total += 1;
+        if (r.Status === "Active") acc[r.Date].active += 1;
+        if (r.Status === "Cancelled") acc[r.Date].cancelled += 1;
+        return acc;
+      }, {});
+
+      const tableRows = Object.entries(grouped).map(([date, data]) => [
+        date,
+        data.total,
+        data.active,
+        data.cancelled,
+      ]);
+
+      autoTable(doc, {
+        head: [["Date", "Total Reservations", "Active", "Cancelled"]],
+        body: tableRows,
+        startY: 45,
+        theme: "grid",
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontSize: 12,
+          halign: "center",
+        },
+        bodyStyles: { halign: "center" },
+        alternateRowStyles: { fillColor: [240, 248, 255] },
+      });
+    } else {
+      autoTable(doc, {
+        head: [["Date", "Total Reservations", "Active", "Cancelled"]],
+        body: [["No reservations this month", "-", "-", "-"]],
+        startY: 45,
+        theme: "grid",
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontSize: 12,
+          halign: "center",
+        },
+        bodyStyles: { halign: "center" },
+      });
+    }
+
+    doc.save(`monthly_report_${year}_${month}.pdf`);
+  };
+
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -203,7 +284,6 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* Content */}
       <div className="bg-white p-8 rounded-3xl shadow-2xl">
         {/* Seats Tab */}
         {activeTab === "seats" && (
@@ -226,9 +306,7 @@ const AdminDashboard = () => {
                   className="flex flex-col items-center p-1 bg-gradient-to-b from-white to-blue-50 rounded-md shadow-sm hover:shadow-md transition-all duration-300 w-20 h-20"
                 >
                   <FaChair className="text-xl text-blue-700 mb-1" />
-                  <span className="text-xs font-semibold mb-1">
-                    {seat.SeatNumber}
-                  </span>
+                  <span className="text-xs font-semibold mb-1">{seat.SeatNumber}</span>
                   <button
                     onClick={() => removeSeat(seat._id)}
                     className="px-2 py-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs shadow-sm transition-all duration-300"
@@ -247,21 +325,17 @@ const AdminDashboard = () => {
               >
                 ⬅ Prev
               </button>
-
               {[...Array(totalPages)].map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentPage(index + 1)}
                   className={`px-3 py-1 rounded ${
-                    currentPage === index + 1
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 hover:bg-gray-300"
+                    currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-gray-200 hover:bg-gray-300"
                   }`}
                 >
                   {index + 1}
                 </button>
               ))}
-
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage((prev) => prev + 1)}
@@ -358,20 +432,26 @@ const AdminDashboard = () => {
           </div>
         )}
 
-   {/* Reports Tab */}
+  {/* Reports Tab */}
 {activeTab === "reports" && (
   <div>
     <h2 className="text-3xl font-bold mb-6 text-blue-800 border-b-2 border-blue-200 pb-2">
       Reports
     </h2>
 
-    {/* Download PDF Button */}
-    <div className="flex justify-end mb-4">
+    {/* PDF Buttons */}
+    <div className="flex justify-end gap-4 mb-4">
       <button
-        onClick={generatePDF}
+        onClick={generateDailyPDF}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
       >
-        ⬇ Download PDF
+        ⬇ Daily Report PDF
+      </button>
+      <button
+        onClick={generateMonthlyPDF}
+        className="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition"
+      >
+        ⬇ Monthly Report PDF
       </button>
     </div>
 
@@ -414,7 +494,7 @@ const AdminDashboard = () => {
         </h3>
         {reservations.length > 0 ? (
           (() => {
-            const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+            const today = new Date().toISOString().split("T")[0];
             const todaysReservations = reservations.filter(
               (r) => r.Date === today
             );
