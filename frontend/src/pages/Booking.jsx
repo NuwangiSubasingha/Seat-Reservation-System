@@ -71,7 +71,7 @@ const Booking = () => {
     try {
       await API.post(
         "/reservations",
-        { Date: form.date, SeatID: seatObj._id, TimeSlot: "09:00-12:00" },
+        { Date: form.date, SeatID: seatObj._id, TimeSlot: "8:30-16:30" },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
 

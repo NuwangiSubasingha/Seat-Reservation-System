@@ -2,6 +2,8 @@ import express from "express";
 import Reservation from "../models/Reservation.js";
 import Seat from "../models/Seat.js";
 import authMiddleware from "../middleware/auth.js";
+import { sendBookingEmail } from "../utils/mail.js";
+import User from "../models/User.js";
 
 const router = express.Router();
 
@@ -28,7 +30,7 @@ router.get("/my", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Create reservation – one per day per user
+// ✅ Create reservation – one per day per user with email notification
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { SeatID, Date, TimeSlot } = req.body;
@@ -66,7 +68,26 @@ router.post("/", authMiddleware, async (req, res) => {
     });
     await reservation.save();
 
+    // Update seat status
     await Seat.findByIdAndUpdate(SeatID, { Status: "Unavailable" });
+
+    // 🔔 Fetch user and seat details for email
+    const user = await User.findById(InternID);
+    const seat = await Seat.findById(SeatID); // get human-readable seat number
+
+    if (user && user.Email && seat) {
+      await sendBookingEmail({
+        to: user.Email,
+        subject: "🎉 Seat Booking Confirmation",
+        text: `Hi ${user.Name}, your seat ${seat.SeatNumber} is successfully booked for ${Date}.`,
+        html: `
+          <h1>Hi ${user.Name},</h1>
+          <p>Your seat <strong>${seat.SeatNumber}</strong> has been successfully booked for <strong>${Date}</strong>.</p>
+          <p>Time Slot: <strong>${TimeSlot}</strong></p>
+          <p>Thank you for booking with SLT Mobitel!</p>
+        `,
+      });
+    }
 
     res.status(201).json({
       message: "Reservation created",
@@ -134,7 +155,7 @@ router.get("/admin", async (req, res) => {
       .populate({
         path: "InternID",
         select: "userId",
-        match: intern ? { userId: new RegExp(intern, "i") } : {}, // ✅ filter by userId
+        match: intern ? { userId: new RegExp(intern, "i") } : {},
       });
 
     // remove reservations where InternID didn’t match
@@ -144,7 +165,7 @@ router.get("/admin", async (req, res) => {
       reservations.map((r) => ({
         ReservationID: r._id,
         ReadableID: r.ReadableID,
-        InternID: r.InternID, // includes userId
+        InternID: r.InternID,
         SeatID: r.SeatID,
         Date: r.Date,
         TimeSlot: r.TimeSlot,
@@ -157,6 +178,3 @@ router.get("/admin", async (req, res) => {
 });
 
 export default router;
-
-
-
