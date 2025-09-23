@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ for navigation
+import { useNavigate } from "react-router-dom";
 import API from "../api";
-import { QRCodeSVG } from "qrcode.react"; // ✅ QR code import
+import { QRCodeSVG } from "qrcode.react";
 
 const MyAccount = () => {
   const [user, setUser] = useState({});
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // ✅ hook for navigation
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loggedUser = JSON.parse(localStorage.getItem("user"));
@@ -20,7 +20,7 @@ const MyAccount = () => {
         const token = localStorage.getItem("token");
         if (!token) {
           console.error("No token found. Please log in again.");
-          navigate("/"); // redirect if not logged in
+          navigate("/");
           return;
         }
 
@@ -70,20 +70,35 @@ const MyAccount = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    navigate("/"); // redirect to login
+    navigate("/");
   };
 
-  const downloadQR = (id, seatNumber) => {
+  // ✅ Updated: download QR as larger PNG
+  const downloadQR = (id, filename) => {
     const svg = document.getElementById(id);
     if (!svg) return;
-    const serializer = new XMLSerializer();
-    const svgBlob = new Blob([serializer.serializeToString(svg)], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(svgBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Reservation-${seatNumber}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+
+    img.onload = () => {
+      const scale = 4; // make PNG 3x larger
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+
+      ctx.scale(scale, scale); // scale content for high-res
+      ctx.drawImage(img, 0, 0);
+
+      const pngFile = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = pngFile;
+      a.download = `${filename}.png`;
+      a.click();
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   if (loading)
@@ -97,12 +112,9 @@ const MyAccount = () => {
 
   return (
     <div className="relative min-h-screen p-10 bg-gradient-to-r from-blue-50 to-blue-300">
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black bg-opacity-20"></div>
 
-      {/* Content */}
       <div className="relative z-10 max-w-5xl mx-auto bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-blue-200">
-        {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-4xl font-extrabold mb-6 text-center text-blue-900 drop-shadow-lg tracking-wide">
             My Account
@@ -124,12 +136,10 @@ const MyAccount = () => {
           </p>
         )}
 
-        {/* Section Title */}
         <h2 className="text-2xl font-semibold mb-8 text-gray-800 border-b-4 border-blue-900 pb-3">
           ✨ Your Reservations
         </h2>
 
-        {/* Reservations List */}
         {reservations.length === 0 ? (
           <p className="text-gray-600 italic text-center bg-white p-8 rounded-2xl shadow-inner border border-gray-300">
             You don’t have any reservations yet.
@@ -140,85 +150,79 @@ const MyAccount = () => {
               const reservationDate = new Date(resv.Date);
               const isFuture = reservationDate >= new Date() && resv.Status === "Active";
 
-return (
-  <div
-    key={resv.ReservationID || resv._id}
-    className={`p-3 rounded-xl shadow-md border transition transform hover:scale-[1.01] hover:shadow-lg bg-blue-50 flex justify-between items-start gap-4`}
-  >
-    {/* Left: Details */}
-    <div className="flex-1 space-y-1 text-sm">
-      <p>
-        <span className="font-semibold">Seat Number:</span>{" "}
-        <span className="text-blue-800 font-bold">{resv.SeatID?.SeatNumber || "Unknown"}</span>
-      </p>
-      <p>
-        <span className="font-semibold">Booking Date:</span>{" "}
-        <span>{reservationDate.toLocaleDateString()}</span>
-      </p>
-      <p>
-        <span className="font-semibold">Time Slot:</span>{" "}
-        <span>{resv.TimeSlot}</span>
-      </p>
-      <p>
-        <span className="font-semibold">Status:</span>{" "}
-        <span className={`${resv.Status === "Active" ? "text-sky-700 font-bold" : "text-red-600 font-bold"}`}>
-          {resv.Status}
-        </span>
-      </p>
+              const qrId = `qr-${resv.ReservationID || resv._id}`;
+              const qrValue = `${resv.SeatID?.SeatNumber || "Unknown"} - ${user.name || "Guest"}`;
+              const fileName = `Seat-${resv.SeatID?.SeatNumber || "Unknown"}-${user.name || "Guest"}`;
 
-      {/* Actions */}
-      {isFuture && (
-        <button
-          onClick={() => cancelReservation(resv.ReservationID || resv._id)}
-          className="mt-2 w-full px-3 py-1 bg-red-500 text-white font-semibold rounded-lg shadow-sm hover:bg-red-600 transition"
-        >
-          Cancel
-        </button>
-      )}
-    </div>
+              return (
+                <div
+                  key={resv.ReservationID || resv._id}
+                  className={`p-3 rounded-xl shadow-md border transition transform hover:scale-[1.01] hover:shadow-lg bg-blue-50 flex justify-between items-start gap-4`}
+                >
+                  {/* Left: Details */}
+                  <div className="flex-1 space-y-1 text-sm">
+                    <p>
+                      <span className="font-semibold">Seat Number:</span>{" "}
+                      <span className="text-blue-800 font-bold">{resv.SeatID?.SeatNumber || "Unknown"}</span>
+                    </p>
+                    <p>
+                      <span className="font-semibold">Booking Date:</span>{" "}
+                      <span>{reservationDate.toLocaleDateString()}</span>
+                    </p>
+                    <p>
+                      <span className="font-semibold">Time Slot:</span>{" "}
+                      <span>{resv.TimeSlot}</span>
+                    </p>
+                    <p>
+                      <span className="font-semibold">Status:</span>{" "}
+                      <span
+                        className={`${
+                          resv.Status === "Active" ? "text-sky-700 font-bold" : "text-red-600 font-bold"
+                        }`}
+                      >
+                        {resv.Status}
+                      </span>
+                    </p>
 
-    {/* Right: QR Code or Past/Cancelled Message */}
-    {isFuture ? (
-      <div className="flex flex-col items-center gap-1">
-        <div className="relative">
-          <QRCodeSVG
-            id={`qr-${resv.ReservationID || resv._id}`}
-            value={`${resv.ReservationID || resv._id}`}
-            size={100}
-            bgColor="#ffffff"
-            fgColor="#0ea5e9"
-            level="H"
-            includeMargin={true}
-          />
-          <span className="absolute -top-4 -right-1 bg-sky-600 text-white text-[10px] font-bold px-1 py-[1px] rounded">
-  Upcoming
-</span>
+                    {isFuture && (
+                      <button
+                        onClick={() => cancelReservation(resv.ReservationID || resv._id)}
+                        className="mt-2 w-full px-3 py-1 bg-red-500 text-white font-semibold rounded-lg shadow-sm hover:bg-red-600 transition"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
 
-        </div>
-        <button
-          onClick={() =>
-            downloadQR(
-              `qr-${resv.ReservationID || resv._id}`,
-              resv.SeatID?.SeatNumber || "Unknown"
-            )
-          }
-          className="px-3 py-0.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600 transition"
-        >
-          Download QR
-        </button>
-      </div>
-    ) : (
-      <span className="flex-1 text-center text-gray-500 italic py-1">
-        Past / Cancelled
-      </span>
-    )}
-  </div>
-);
-
-
-
-
-              
+                  {/* Right: QR Code */}
+                  {isFuture ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="relative">
+                        <QRCodeSVG
+                          id={qrId}
+                          value={qrValue}
+                          size={100} // keeps display size small
+                          bgColor="#ffffff"
+                          fgColor="#0ea5e9"
+                          level="H"
+                          includeMargin={true}
+                        />
+                        <span className="absolute -top-4 -right-1 bg-sky-600 text-white text-[10px] font-bold px-1 py-[1px] rounded">
+                          Upcoming
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => downloadQR(qrId, fileName)}
+                        className="px-3 py-0.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600 transition"
+                      >
+                        Download QR
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="flex-1 text-center text-gray-500 italic py-1">Past / Cancelled</span>
+                  )}
+                </div>
+              );
             })}
           </div>
         )}
